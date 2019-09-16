@@ -22,14 +22,13 @@ Copy and paste the entire directory and put it in the target machine, then run r
 - to be run on attacker's machine
 - <b>doesnt work, might try to fix it in the future</b>
 
-### remote
+### ./remote
 - pops a shell with root permission :)
 
 --------
 
 ## Writeup
 
-## Rootkit Functionality
 ### Installation
 Our rootkit consists of two loadable kernel modules. Our main KLD, _'trivial'_, hooks several syscalls to set up the various features of our Rootkit as outlined below:
 
